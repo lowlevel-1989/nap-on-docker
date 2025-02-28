@@ -13,7 +13,7 @@ docker container run -d --name elasticsearch --network host --restart unless-sto
 
 3.- Ejecutar el servicio de logstash [8515]
 
-docker container run -d --name logstash --network host --restart unless-stopped -e TZ="Europe/Madrid" -e ES_JAVA_OPTS="-Xms1g -Xmx1g" logstash/logstash:8.10.4
+docker container run -d --name logstash --network host -v ./logstash.conf:/usr/share/logstash/pipeline/logstash.conf:ro --restart unless-stopped -e TZ="Europe/Madrid" -e ES_JAVA_OPTS="-Xms1g -Xmx1g" logstash/logstash:8.10.4
 
 4.- Ejecutar el servicio de kibana [5001]
 
