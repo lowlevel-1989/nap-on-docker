@@ -1,0 +1,67 @@
+POR SIMPLIFICACIÓN SE UTILIZARA NETWORK HOST
+
+1.- Descargamos las imagenes a utilizar
+
+docker image pull docker.elastic.co/elasticsearch/elasticsearch:8.10.4
+docker image pull docker.elastic.co/logstash/logstash:8.10.4
+docker image pull docker.elastic.co/kibana/kibana:8.10.4
+docker image pull grafana/grafana-oss:10.3.3
+
+2.- Ejecutar el servicio de elastic [9200, 9300]
+
+docker container run -d --name elasticsearch --network host --restart unless-stopped -e TZ="Europe/Madrid" -e discovery.type="single-node" -e ES_JAVA_OPTS="-Xms3g -Xmx3g" -e xpack.security.enabled="false" -e xpack.security.enrollment.enabled="false" elasticsearch/elasticsearch:8.10.4
+
+3.- Ejecutar el servicio de logstash [8515]
+
+docker container run -d --name logstash --network host --restart unless-stopped -e TZ="Europe/Madrid" -e ES_JAVA_OPTS="-Xms1g -Xmx1g" logstash/logstash:8.10.4
+
+4.- Ejecutar el servicio de kibana [5001]
+
+docker container run -d --name kibana --network host --restart unless-stopped -e TZ="Europe/Madrid" kibana/kibana:8.10.4
+
+5.- Ejecutar el servicio de grafana [3000]
+
+docker container run -d --name grafana --network host --restart unless-stopped -e TZ="Europe/Madrid" grafana/grafana-oss:10.3.3
+
+6.- Creamos los indices en elastic
+
+curl -d "@elastic/index-template-waf.json" -H 'Content-Type: application/json' -X PUT 'http://localhost:9200/_index_template/nginx-nap-logs'
+
+7.- Configuramos las fuentes de los datos en grafana
+
+curl -d "@grafana/DS-waf-index.json" -H 'Content-Type: application/json' -u 'admin:admin' -X POST 'http://localhost:3000/api/datasources/'
+
+curl -d "@grafana/DS-waf-decoded-index.json" -H 'Content-Type: application/json' -u 'admin:admin' -X POST 'http://localhost:3000/api/datasources/'
+
+8.- Configurar los dashboard en grafana
+
+| Dashboard Name       | Dashboard ID | Grafana Source              | Grafana Website                            |  
+|----------------------|--------------|-----------------------------|-------------------------------------------|  
+| Main Dashboard       | 20052        | WAF-Logs                    | https://grafana.com/grafana/dashboards/20052 |  
+| SupportIDs           | 20055        | WAF-Logs, WAF-Decoded      | https://grafana.com/grafana/dashboards/20055 |  
+| Attack Signatures    | 20048        | WAF-Decoded                 | https://grafana.com/grafana/dashboards/20048 |  
+| File Types           | 20049        | WAF-Logs                    | https://grafana.com/grafana/dashboards/20049 |  
+| Meta Characters      | 20053        | WAF-Logs                    | https://grafana.com/grafana/dashboards/20053 |  
+| Parameters           | 20054        | WAF-Logs                    | https://grafana.com/grafana/dashboards/20054 |  
+| Protocol             | 20892        | WAF-Logs                    | https://grafana.com/grafana/dashboards/20892 |  
+
+9.- Configurar los logs de nginx app protect en el siguiente formato
+
+{
+  "filter": {
+    "request_type": "illegal"
+  },
+
+    "content": {
+      "format": "user-defined",
+      "format_string": "{\"campaign_names\":\"%threat_campaign_names%\",\"bot_signature_name\":\"%bot_signature_name%\",\"bot_category\":\"%bot_category%\",\"bot_anomalies\":\"%bot_anomalies%\",\"enforced_bot_anomalies\":\"%enforced_bot_anomalies%\",\"client_class\":\"%client_class%\",\"client_application\":\"%client_application%\",\"json_log\":%json_log%}", 
+      "max_request_size": "500",
+      "max_message_size": "30k",
+      "escaping_characters": [
+      {
+        "from": "%22%22",
+        "to": "%22"
+      }  
+      ]      
+    }
+}
